@@ -153,15 +153,26 @@ public class Token
     {
         Token token = new Token(firstChar);  // the leading '
 
-        // Loop to append the rest of the characters of the string,
-        // up to but not including the closing quote.
-        for (char ch = source.nextChar(); ch != '\''; ch = source.nextChar())
-        {
-            token.text += ch;
-        }
+        boolean done = false;
         
-        token.text += '\'';  // append the closing '
-        source.nextChar();   // and consume it
+        while(!done) {
+        	// Loop to append the rest of the characters of the string,
+        	// stopping at the first '
+        	for (char ch = source.nextChar(); ch != '\''; ch = source.nextChar())
+        	{
+        		token.text += ch;
+        	}
+        
+        	token.text += '\'';  // append the '
+        	source.nextChar();   // and consume it. In the case of no apostrophes, this closes our string, but could be an apostrophe
+        	
+        	// check to see if the last^ ' closes the string, or is an apostrophe
+        	if(source.currentChar() != '\'') {
+        		done = true;
+        	}
+        } 
+        
+        
         if (token.text.length() == 3) {
             token.type = TokenType.CHARACTER;
         }

@@ -1,3 +1,4 @@
+package main;
 /**
  * A simple interpreter to demonstrate scanning, parsing, symbol tables,
  * parse trees, and interpreted program execution.
