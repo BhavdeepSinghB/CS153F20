@@ -168,23 +168,25 @@ public class Token
             for (char ch = source.nextChar(); ch != '\''; ch = source.nextChar())
             {
                 
+            	token.text += ch;
                 if (ch == '\0') { //check to see if character is null, if it is, string is not closed
                 	error = true;
                     break;
                     
                 }
-                token.text += ch;
+               
             }
-
+            
+            if (!error) {
             token.text += '\'';  // append the '
             source.nextChar();   // and consume it. In the case of no apostrophes, this closes our string, but could be an apostrophe
-            
+            }
             // check to see if the last^ ' closes the string, or is an apostrophe
             if(source.currentChar() != '\'') {
- 
             	done = true;
             } 
             if (error) {
+            	
             	token.type = TokenType.ERROR;
                 tokenError(token, "String not closed");
             }
