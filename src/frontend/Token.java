@@ -155,25 +155,42 @@ public class Token
     public static Token string(char firstChar, Source source)
     {
         Token token = new Token(firstChar);  // the leading '
+        token.lineNumber = source.lineNumber();
 
         boolean done = false;
+        boolean error = false;
 
-        while(!done) {
+        if(source.currentChar() != '\'') error = true; //check to see if string was opened
+        
+        while(!done && !error) {
             // Loop to append the rest of the characters of the string,
             // stopping at the first '
             for (char ch = source.nextChar(); ch != '\''; ch = source.nextChar())
             {
+                
+                if (ch == '\0') { //check to see if character is null, if it is, string is not closed
+                	error = true;
+                    break;
+                    
+                }
                 token.text += ch;
             }
 
             token.text += '\'';  // append the '
             source.nextChar();   // and consume it. In the case of no apostrophes, this closes our string, but could be an apostrophe
-
+            
             // check to see if the last^ ' closes the string, or is an apostrophe
             if(source.currentChar() != '\'') {
-                done = true;
+ 
+            	done = true;
+            } 
+            if (error) {
+            	token.type = TokenType.ERROR;
+                tokenError(token, "String not closed");
             }
         }
+        
+       
 
 
         if (token.text.length() == 3) {
