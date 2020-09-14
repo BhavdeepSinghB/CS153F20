@@ -26,26 +26,35 @@ public class Scanner
      */
     public Token nextToken()
     {
-        char ch = source.currentChar();
+        // Skip blanks, comments, and other whitespace characters.
+        char ch = nextNonblankCharacter();
         
-        // Skip blanks and other whitespace characters.
-        while (Character.isWhitespace(ch)) ch = source.nextChar();
-
-        //Skip Comments
-        // Not the most elegant solution, but keeping in place for now
-        while (ch == '{') {
-            while(ch != '}') {
-                ch = source.nextChar();
-            }
-            ch = source.nextChar(); //consume the closing brace
-            while(Character.isWhitespace(ch)) {
-                ch = source.nextChar();
-            }
-        }
-
         if (Character.isLetter(ch))     return Token.word(ch, source);
         else if (Character.isDigit(ch)) return Token.number(ch, source);
-        else if (ch == '\'')            return Token.string(ch, source);
+        else if (ch == '\'')            return Token.characterOrString(ch, source);
         else                            return Token.specialSymbol(ch, source);
+    }
+    
+    /**
+     * Skip blanks, comments, and other whitespace characters
+     * and return the next nonblank character.
+     * @return the next nonblank character.
+     */
+    private char nextNonblankCharacter()
+    {
+        char ch = source.currentChar();
+        
+        while ((ch == '{') || Character.isWhitespace(ch))
+        {
+            if (ch == '{')
+            {
+                // Consume characters of the comment.
+                while ((ch != '}') && (ch != Source.EOF)) ch = source.nextChar();
+            }
+            
+            ch = source.nextChar();  // consume character
+        }
+        
+        return ch;  // nonblank character
     }
 }

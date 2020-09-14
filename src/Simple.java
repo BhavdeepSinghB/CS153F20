@@ -59,7 +59,7 @@ public class Simple
              token.type != END_OF_FILE; 
              token = scanner.nextToken())
         {
-            System.out.printf("%12s : %s\n", token.type, token.text);
+            System.out.printf("%14s : %s\n", token.type, token.text);
         }
     }
     
@@ -103,7 +103,7 @@ public class Simple
         // If no errors, execute the program using the parse tree.
         if (errorCount == 0)
         {
-            Executor executor = new Executor(symtab);
+            Executor executor = new Executor();
             executor.visit(programNode);
         }
         else

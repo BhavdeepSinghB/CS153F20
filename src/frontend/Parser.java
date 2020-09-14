@@ -65,7 +65,7 @@ public class Parser
         // The PROGRAM node adopts the COMPOUND tree.
         programNode.adopt(parseCompoundStatement());
         
-        if (currentToken.type == SEMICOLON) syntaxError("Expecting .");
+        if (currentToken.type != PERIOD) syntaxError("Expecting .");
         return programNode;
     }
     
@@ -98,6 +98,10 @@ public class Parser
         
         relationalOperators.add(EQUALS);
         relationalOperators.add(LESS_THAN);
+        relationalOperators.add(GREATER_THAN);
+        relationalOperators.add(GREATER_EQUALS);
+        relationalOperators.add(LESS_EQUALS);
+        relationalOperators.add(NOT_EQUALS);
         
         simpleExpressionOperators.add(PLUS);
         simpleExpressionOperators.add(MINUS);
@@ -117,6 +121,7 @@ public class Parser
             case IDENTIFIER : stmtNode = parseAssignmentStatement(); break;
             case BEGIN :      stmtNode = parseCompoundStatement();   break;
             case REPEAT :     stmtNode = parseRepeatStatement();     break;
+            case WHILE :      stmtNode = parseWhileStatement();      break;
             case WRITE :      stmtNode = parseWriteStatement();      break;
             case WRITELN :    stmtNode = parseWritelnStatement();    break;
             case SEMICOLON :  stmtNode = null; break;  // empty statement
@@ -128,35 +133,38 @@ public class Parser
         return stmtNode;
     }
     
-    private Node parseAssignmentStatement()
+private Node parseAssignmentStatement()
+{
+    // The current token should now be the left-hand-side variable name.
+    
+    Node assignmentNode = new Node(ASSIGN);
+    
+    // Enter the variable name into the symbol table
+    // if it isn't already in there.
+    String variableName = currentToken.text;
+    SymtabEntry variableId = symtab.lookup(variableName.toLowerCase());
+    if (variableId == null) variableId = symtab.enter(variableName);
+    
+    // The assignment node adopts the variable node as its first child.
+    Node lhsNode  = new Node(VARIABLE);        
+    lhsNode.text  = variableName;
+    lhsNode.entry = variableId;
+    assignmentNode.adopt(lhsNode);
+    
+    currentToken = scanner.nextToken();  // consume the LHS variable;
+    
+    if (currentToken.type == COLON_EQUALS) 
     {
-        // The current token should now be the left-hand-side variable name.
-        
-        Node assignmentNode = new Node(ASSIGN);
-        
-        // The assignment node adopts the variable node as its first child.
-        Node lhsNode = new Node(VARIABLE);
-        String variableName = currentToken.text;
-        SymtabEntry variableId = symtab.enter(variableName.toLowerCase());
-        
-        lhsNode.text  = variableName;
-        lhsNode.entry = variableId;
-        assignmentNode.adopt(lhsNode);
-        
-        currentToken = scanner.nextToken();  // consume the LHS variable;
-        
-        if (currentToken.type == COLON_EQUALS) 
-        {
-            currentToken = scanner.nextToken();  // consume :=
-        }
-        else syntaxError("Missing :=");
-        
-        // The assignment node adopts the expression node as its second child.
-        Node rhsNode = parseExpression();
-        assignmentNode.adopt(rhsNode);
-        
-        return assignmentNode;
+        currentToken = scanner.nextToken();  // consume :=
     }
+    else syntaxError("Missing :=");
+    
+    // The assignment node adopts the expression node as its second child.
+    Node rhsNode = parseExpression();
+    assignmentNode.adopt(rhsNode);
+    
+    return assignmentNode;
+}
     
     private Node parseCompoundStatement()
     {
@@ -177,7 +185,8 @@ public class Parser
     
     private void parseStatementList(Node parentNode, Token.TokenType terminalType)
     {
-        while ((currentToken.type != terminalType) && (currentToken.type != END_OF_FILE))
+        while (   (currentToken.type != terminalType) 
+               && (currentToken.type != END_OF_FILE))
         {
             Node stmtNode = parseStatement();
             if (stmtNode != null) parentNode.adopt(stmtNode);
@@ -224,7 +233,39 @@ public class Parser
         
         return loopNode;
     }
-    
+
+    private Node parseWhileStatement() {
+        Node loopNode = new Node(LOOP);
+        currentToken = scanner.nextToken(); // consume WHILE
+
+        Node testNode = new Node(TEST);
+        lineNumber = currentToken.lineNumber;
+        testNode.lineNumber = lineNumber;
+
+        // Create and adopt a NOT node
+        Node notNode = new Node(Node.NodeType.NOT);
+        notNode.adopt(parseExpression());
+        testNode.adopt(notNode);
+
+        // LOOP node adopts TEST node
+        loopNode.adopt(testNode);
+
+        // If DO is present, consume it and adopt either a compound statement
+        // or the next statement tree
+        if(currentToken.type == DO) {
+            currentToken = scanner.nextToken();
+            if (currentToken.type == BEGIN) {
+                loopNode.adopt(parseCompoundStatement());
+            }
+            else {
+                loopNode.adopt(parseStatement());
+            }
+        }
+        else syntaxError("Expecting DO");
+
+        return loopNode;
+    }
+
     private Node parseWriteStatement()
     {
         // The current token should now be WRITE.
@@ -271,7 +312,8 @@ public class Parser
             node.adopt(parseVariable());
             hasArgument = true;
         }
-        else if (currentToken.type == STRING)
+        else if (   (currentToken.type == CHARACTER)
+                 || (currentToken.type == STRING))
         {
             node.adopt(parseStringConstant());
             hasArgument = true;
@@ -324,9 +366,13 @@ public class Parser
         if (relationalOperators.contains(currentToken.type))
         {
             Token.TokenType tokenType = currentToken.type;
-            Node opNode = tokenType == EQUALS    ? new Node(EQ)
-                        : tokenType == LESS_THAN ? new Node(LT)
-                        :                          null;
+            Node opNode = tokenType == EQUALS         ? new Node(EQ)
+                        : tokenType == LESS_THAN      ? new Node(LT)
+                        : tokenType == LESS_EQUALS    ? new Node(LEQ)
+                        : tokenType == GREATER_THAN   ? new Node(GT)
+                        : tokenType == GREATER_EQUALS ? new Node(GEQ)
+                        : tokenType == NOT_EQUALS     ? new Node(NEQ)
+                        :                               null;
             
             currentToken = scanner.nextToken();  // consume relational operator
             
@@ -378,7 +424,7 @@ public class Parser
         // The term's root node.
         Node termNode = parseFactor();
         
-        // Keep parsing more factor as long as the current token
+        // Keep parsing more factors as long as the current token
         // is a * or / operator.
         while (termOperators.contains(currentToken.type))
         {
@@ -428,13 +474,14 @@ public class Parser
     {
         // The current token should now be an identifier.
         
+        // Has the variable been "declared"?
         String variableName = currentToken.text;
         SymtabEntry variableId = symtab.lookup(variableName.toLowerCase());
-        
         if (variableId == null) semanticError("Undeclared identifier");
         
-        Node node = new Node(VARIABLE);
-        node.text = variableName;
+        Node node  = new Node(VARIABLE);
+        node.text  = variableName;
+        node.entry = variableId;
         
         currentToken = scanner.nextToken();  // consume the identifier        
         return node;
@@ -464,7 +511,7 @@ public class Parser
     
     private Node parseStringConstant()
     {
-        // The current token should now be STRING.
+        // The current token should now be CHARACTER or STRING.
         
         Node stringNode = new Node(STRING_CONSTANT);
         stringNode.value = currentToken.value;

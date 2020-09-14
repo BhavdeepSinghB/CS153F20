@@ -16,7 +16,6 @@ import static intermediate.Node.NodeType.*;
 public class Executor
 {
     private int lineNumber;
-    private Symtab symtab;
     
     private static HashSet<Node.NodeType> singletons;
     private static HashSet<Node.NodeType> relationals;
@@ -35,10 +34,7 @@ public class Executor
         relationals.add(LT);
     }
     
-    public Executor(Symtab symtab)
-    {
-        this.symtab = symtab;
-    }
+    public Executor() {}
     
     public Object visit(Node node)
     {
@@ -96,8 +92,7 @@ public class Executor
         Double value = (Double) visit(rhs);
         
         // Store the value into the variable's symbol table entry.
-        String variableName = lhs.text;
-        SymtabEntry variableId = symtab.lookup(variableName);
+        SymtabEntry variableId = lhs.entry;
         variableId.setValue(value);
         
         return null;
@@ -247,8 +242,7 @@ public class Executor
     private Object visitVariable(Node variableNode)
     {
         // Obtain the variable's value from its symbol table entry.
-        String variableName = variableNode.text;
-        SymtabEntry variableId = symtab.lookup(variableName);
+        SymtabEntry variableId = variableNode.entry;
         Double value = variableId.getValue();
         
         return value;

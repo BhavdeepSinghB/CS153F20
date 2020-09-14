@@ -1,0 +1,9 @@
+program TestWhile;
+
+begin
+    i := 1;
+    while i <= 5 do begin
+        write('i = '); writeln(i);
+        i := i + 1
+    end
+end.

@@ -1,4 +1,4 @@
-/*
+/**
  * Token class for a simple interpreter.
  * 
  * (c) 2020 by Ronald Mak
@@ -14,14 +14,16 @@ public class Token
     public enum TokenType
     {
         PROGRAM, BEGIN, END, REPEAT, UNTIL, WRITE, WRITELN, 
-        PERIOD, COLON, COLON_EQUALS, SEMICOLON,
+        DIV, MOD, AND, OR, NOT,
+        CONST, TYPE, VAR, PROCEDURE, FUNCTION,
+        WHILE, DO, FOR, TO, DOWNTO, IF, THEN, ELSE, CASE, OF,
+        PERIOD, COMMA, COLON, COLON_EQUALS, SEMICOLON,
         PLUS, MINUS, STAR, SLASH, LPAREN, RPAREN, 
-        EQUALS, LESS_THAN,
-        IDENTIFIER, INTEGER, REAL, STRING, END_OF_FILE, ERROR,
-        DIV, MOD, AND, OR, NOT, CONST, TYPE, VAR, PROCEDURE,
-        FUNCTION, WHILE, DO, FOR, TO, DOWNTO, IF, THEN, ELSE,
-        CASE, OF, COMMA, LBRACKET, RBRACKET, CARAT, LESS_EQUALS,
-        NOT_EQUALS, GREATER_EQUALS, GREATER_THAN, DOT_DOT, CHARACTER
+        EQUALS, NOT_EQUALS, LESS_THAN, LESS_EQUALS, 
+        GREATER_THAN, GREATER_EQUALS, DOT_DOT, QUOTE,
+        LBRACKET, RBRACKET, CARAT,
+        IDENTIFIER, INTEGER, REAL, CHARACTER, STRING, 
+        END_OF_FILE, ERROR
     }
     
     /**
@@ -57,6 +59,7 @@ public class Token
         reservedWords.put("IF",        TokenType.IF);
         reservedWords.put("THEN",      TokenType.THEN);
         reservedWords.put("ELSE",      TokenType.ELSE);
+        reservedWords.put("WHILE",     TokenType.WHILE);
         reservedWords.put("CASE",      TokenType.CASE);
         reservedWords.put("OF",        TokenType.OF);
     }
@@ -138,7 +141,8 @@ public class Token
             token.value = Double.parseDouble(token.text);
         }
         
-        else {
+        else
+        {
             token.type = TokenType.ERROR;
             tokenError(token, "Invalid number");
         }
@@ -147,68 +151,70 @@ public class Token
     }
     
     /**
-     * Construct a string token and set its value.
+     * Construct a character or string token and set its value.
      * @param firstChar the first character of the token.
      * @param source the input source.
      * @return the string token.
      */
-    public static Token string(char firstChar, Source source)
+    public static Token characterOrString(char firstChar, Source source)
     {
         Token token = new Token(firstChar);  // the leading '
         token.lineNumber = source.lineNumber();
+        int length = 0;                      // string length
 
+        // Loop to append the rest of the characters of the string,
+        // up to but not including the closing quote.
         boolean done = false;
-        boolean error = false;
-
-        if(source.currentChar() != '\'') error = true; //check to see if string was opened
-        
-        while(!done && !error) {
-            // Loop to append the rest of the characters of the string,
-            // stopping at the first '
-            for (char ch = source.nextChar(); ch != '\''; ch = source.nextChar())
+        char ch = source.nextChar();
+        do
+        {
+            // Append characters to the string until ' or EOF.
+            while ((ch != '\'') && (ch != Source.EOF))
             {
-                
-            	token.text += ch;
-                if (ch == '\0') { //check to see if character is null, if it is, string is not closed
-                	error = true;
-                    break;
-                    
-                }
-               
+                token.text += ch;
+                length++;
+                ch = source.nextChar();  // consume the character
             }
             
-            if (!error) {
-            token.text += '\'';  // append the '
-            source.nextChar();   // and consume it. In the case of no apostrophes, this closes our string, but could be an apostrophe
-            }
-            // check to see if the last^ ' closes the string, or is an apostrophe
-            if(source.currentChar() != '\'') {
-            	done = true;
-            } 
-            if (error) {
-            	
-            	token.type = TokenType.ERROR;
+            // End of file. An unclosed string.
+            if (ch == Source.EOF)
+            {
                 tokenError(token, "String not closed");
+                done = true;
             }
-        }
+            
+            // Got a ' so it can be the closing ', or a ''
+            else
+            {
+                ch = source.nextChar();  // consume the '
+                
+                // That was the closing '. Close the string.
+                if (ch != '\'') 
+                {
+                    token.text += '\'';
+                    done = true;
+                }
+                
+                // It's '' so append ' to the string.
+                else
+                {
+                    token.text += '\'';
+                    length++;
+                    ch = source.nextChar();  // consume second '
+                }
+            }
+        } while (!done);
         
-       
-
-
-        if (token.text.length() == 3) {
-            token.type = TokenType.CHARACTER;
-        }
-        else {
-            token.type = TokenType.STRING;
-        }
-
-
+        // It's a character token if the string length is 1.
+        // Otherwise, it's a string token.
+        token.type = length == 1 ? TokenType.CHARACTER : TokenType.STRING;
+        
         // Don't include the leading and trailing ' in the value.
         token.value = token.text.substring(1, token.text.length() - 1);
 
         return token;
     }
-    
+   
     /**
      * Construct a special symbol token and set its value.
      * @param firstChar the first character of the token.
@@ -219,48 +225,30 @@ public class Token
     {
         Token token = new Token(firstChar);
         token.lineNumber = source.lineNumber();
+        
         switch (firstChar)
         {
-            case ';' : token.type = TokenType.SEMICOLON;   break;
-            case '+' : token.type = TokenType.PLUS;        break;
-            case '-' : token.type = TokenType.MINUS;       break;
-            case '*' : token.type = TokenType.STAR;        break;
-            case '/' : token.type = TokenType.SLASH;       break;
-            case '=' : token.type = TokenType.EQUALS;      break;
-            case '(' : token.type = TokenType.LPAREN;      break;
-            case ')' : token.type = TokenType.RPAREN;      break;
-            case ',' : token.type = TokenType.COMMA;       break;
-            case '[' : token.type = TokenType.LBRACKET;    break;
-            case ']' : token.type = TokenType.RBRACKET;    break;
-            case '^' : token.type = TokenType.CARAT;       break;
-
-            case '.' :
+            case ',' : token.type = TokenType.COMMA;      break;
+            case ';' : token.type = TokenType.SEMICOLON;  break;
+            case '+' : token.type = TokenType.PLUS;       break;
+            case '-' : token.type = TokenType.MINUS;      break;
+            case '*' : token.type = TokenType.STAR;       break;
+            case '/' : token.type = TokenType.SLASH;      break;
+            case '=' : token.type = TokenType.EQUALS;     break;
+            case '(' : token.type = TokenType.LPAREN;     break;
+            case ')' : token.type = TokenType.RPAREN;     break;
+            case '[' : token.type = TokenType.LBRACKET;   break;
+            case ']' : token.type = TokenType.RBRACKET;   break;
+            case '^' : token.type = TokenType.CARAT;      break;
+            
+            case ':' : 
             {
-                char nextChar = source.nextChar();
-
-                // Is it the .. symbol?
-                if (nextChar == '.')
-                {
-                    token.text += nextChar;
-                    token.type = TokenType.DOT_DOT;
-                }
-                else
-                {
-                    token.type = TokenType.PERIOD;
-                    return token;   //already consumed .
-                }
-
-                break;
-            }
-
-            case ':' :
-            {
-                char nextChar = source.nextChar();
+                char nextChar = source.nextChar();  // consume :
                 
                 // Is it the := symbol?
                 if (nextChar == '=') 
                 {
-                    token.text += nextChar;
+                    token.text += '=';
                     token.type = TokenType.COLON_EQUALS;
                 }
                 
@@ -273,54 +261,81 @@ public class Token
 
                 break;
             }
-
-            case '<' :
+            
+            case '<' : 
             {
-                char nextChar = source.nextChar();
-
+                char nextChar = source.nextChar();  // consume <
+                
                 // Is it the <= symbol?
-                if (nextChar == '=')
+                if (nextChar == '=') 
                 {
-                    token.text += nextChar;
+                    token.text += '=';
                     token.type = TokenType.LESS_EQUALS;
                 }
-                //Is it the <> symbol?
-                else if (nextChar == '>')
+                
+                // Is it the <> symbol?
+                else if (nextChar == '>') 
                 {
-                    token.text += nextChar;
+                    token.text += '>';
                     token.type = TokenType.NOT_EQUALS;
                 }
-                // No, it's just the < symbol
+
+                // No, it's just the < symbol.
                 else
                 {
                     token.type = TokenType.LESS_THAN;
-                    return token;   //already consumed <
+                    return token;  // already consumed <
                 }
+
                 break;
             }
-
-            case '>' :
+            
+            case '>' : 
             {
-                char nextChar = source.nextChar();
-
-                //Check if it is the >= symbol
-                if (nextChar == '=')
+                char nextChar = source.nextChar();  // consume >
+                
+                // Is it the >= symbol?
+                if (nextChar == '=') 
                 {
-                    token.text += nextChar;
+                    token.text += '=';
                     token.type = TokenType.GREATER_EQUALS;
                 }
-                // No, it is the > symbol
+                
+                // No, it's just the > symbol.
                 else
                 {
                     token.type = TokenType.GREATER_THAN;
-                    return token;   //already consumed >
+                    return token;  // already consumed >
                 }
+
                 break;
             }
             
+            case '.' : 
+            {
+                char nextChar = source.nextChar();  // consume .
+                
+                // Is it the .. symbol?
+                if (nextChar == '.') 
+                {
+                    token.text += '.';
+                    token.type = TokenType.DOT_DOT;
+                }
+                
+                // No, it's just the . symbol.
+                else
+                {
+                    token.type = TokenType.PERIOD;
+                    return token;  // already consumed .
+                }
+
+                break;
+            }
+
             case Source.EOF : token.type = TokenType.END_OF_FILE; break;
             
-            default : {
+            default: 
+            {
                 token.type = TokenType.ERROR;
                 tokenError(token, "Invalid token");
             }
