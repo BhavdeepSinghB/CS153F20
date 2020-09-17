@@ -130,6 +130,7 @@ public class Parser
             case WHILE :      stmtNode = parseWhileStatement();      break;
             case IF :         stmtNode = parseIfStatement();         break;
             case FOR :		  stmtNode = parseForStatement();		 break;
+            case CASE:        stmtNode = parseCaseStatement();       break;
             case WRITE :      stmtNode = parseWriteStatement();      break;
             case WRITELN :    stmtNode = parseWritelnStatement();    break;
             case SEMICOLON :  stmtNode = null; break;  // empty statement
@@ -381,8 +382,41 @@ public class Parser
         return ifNode;
     }
 
+    private Node parseCaseStatement() {
+        System.out.println("PARSE_CASE_STATEMENT");
+
+        Node caseNode = new Node(COMPOUND);
+        currentToken = scanner.nextToken(); // consume CASE
 
 
+        Node testNode = new Node(TEST);
+        //System.out.println("CCurrent: " + currentToken.text);
+        //System.out.println("CCurrent: " + currentToken);
+        lineNumber = currentToken.lineNumber;
+        testNode.lineNumber = lineNumber;
+
+        currentToken = scanner.nextToken();
+        if(currentToken.type == OF) {
+
+            currentToken = scanner.nextToken();
+            //System.out.println("-----" + currentToken.type);
+            parseStatementList(caseNode, END);
+            if(currentToken.type == END) {
+                currentToken = scanner.nextToken(); //consume END
+                if(currentToken.type == SEMICOLON) {
+                    currentToken = scanner.nextToken(); //consume ;
+                }
+                else syntaxError("Expecting ;");
+            }
+            else syntaxError("Expecting END");
+        } else {
+            syntaxError("Expecting OF");
+        }
+
+
+
+        return caseNode;
+    }
 
 
     private Node parseWriteStatement()
