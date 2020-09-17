@@ -1,0 +1,20 @@
+{This is a comment.}
+
+{This is a comment
+ that spans several
+ source lines.}
+
+PROGRAM HelloWorld;
+VAR
+    i : integer;
+BEGIN
+    i := 0;
+    
+    REPEAT
+        i := i + 1;
+        write('#'); write(i);
+        writeln(': Hello World');
+    UNTIL i > 5;
+}
+END.
+What?
