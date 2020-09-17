@@ -32,6 +32,10 @@ public class Executor
         
         relationals.add(EQ);
         relationals.add(LT);
+        relationals.add(GT);
+        relationals.add(LEQ);
+        relationals.add(GEQ);
+        relationals.add(NEQ);
     }
     
     public Executor() {}
@@ -118,6 +122,11 @@ public class Executor
     
     private Object visitTest(Node testNode)
     {
+        Node checker =  testNode.children.get(0);
+        if (checker.type == NOT) {
+            testNode = checker;
+            return !((Boolean) visit(testNode.children.get(0)));
+        }
         return (Boolean) visit(testNode.children.get(0));
     }
     
@@ -203,10 +212,13 @@ public class Executor
             
             switch (expressionNode.type)
             {
-                case EQ : value = value1 == value2; break;
-                case LT : value = value1 <  value2; break;
-                
-                default : break;
+                case EQ  : value = value1 == value2; break;
+                case LT  : value = value1 <  value2; break;
+                case GT  : value = value1 >  value2; break;
+                case LEQ : value = value1 <= value2; break;
+                case GEQ : value = value1 >= value2; break;
+                case NEQ : value = value1 != value2; break;
+                default  : break;
             }
             
             return value;
