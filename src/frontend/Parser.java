@@ -122,6 +122,7 @@ public class Parser
             case BEGIN :      stmtNode = parseCompoundStatement();   break;
             case REPEAT :     stmtNode = parseRepeatStatement();     break;
             case WHILE :      stmtNode = parseWhileStatement();      break;
+            case FOR :		  stmtNode = parseForStatement();		 break;
             case WRITE :      stmtNode = parseWriteStatement();      break;
             case WRITELN :    stmtNode = parseWritelnStatement();    break;
             case SEMICOLON :  stmtNode = null; break;  // empty statement
@@ -232,6 +233,92 @@ private Node parseAssignmentStatement()
         else syntaxError("Expecting UNTIL");
         
         return loopNode;
+    }
+    
+    private Node parseForStatement() {
+    	boolean isTO = false; // flag for isTO/DOWNTO
+    	
+    	Node forNode = new Node(COMPOUND);
+    	currentToken = scanner.nextToken(); // consume FOR
+    	
+    	//Adopt the assignment statement node
+    	forNode.adopt(parseAssignmentStatement());
+    	
+    	//create the loop node
+    	Node loopNode = new Node(LOOP);
+    	
+    	if(currentToken.type == TO) {
+    		currentToken = scanner.nextToken(); // consume TO
+    		isTO = true;
+    		
+    		Node testNode = new Node(TEST);
+    		Node gt = new Node(GT);
+    		gt.adopt(forNode.children.get(0).children.get(0)); // get the variable from the original assign node
+    		gt.adopt(parseExpression()); // Parse next number
+    		
+    		testNode.adopt(gt);
+    		loopNode.adopt(testNode);
+    	}
+    	
+    	else if(currentToken.type == DOWNTO) {
+    		currentToken = scanner.nextToken(); // consume DOWNTO
+    		isTO = false;
+    		
+    		Node testNode = new Node(TEST);
+    		Node lt = new Node(LT);
+    		lt.adopt(forNode.children.get(0).children.get(0)); // get the variable from the original assign node
+    		lt.adopt(parseExpression()); // Parse next number
+    		
+    		testNode.adopt(lt);
+    		loopNode.adopt(testNode);
+    	}
+    	else syntaxError("Expecting TO or DOWNTO");
+    	
+    	//Parse DO 
+    	if(currentToken.type == DO) {
+    		currentToken = scanner.nextToken(); // consume DO
+    		
+    		// If DO is present, consume it and adopt either a compound statement
+            // or the next statement (stole bhavdeep's code) 
+    		if (currentToken.type == BEGIN) {
+                loopNode.adopt(parseCompoundStatement());
+            }
+            else {
+                loopNode.adopt(parseStatement());
+            }
+    	}
+    	else syntaxError("Expecting DO");
+    	
+    	Node assignNode = new Node(ASSIGN);
+    	assignNode.adopt(forNode.children.get(0).children.get(0));// get the variable from the original assign node
+    	
+    	if(isTO) {
+    		Node addNode = new Node(ADD);
+    		addNode.adopt(forNode.children.get(0).children.get(0));// get the variable from the original assign node
+    		Node constIntNode = new Node(INTEGER_CONSTANT);
+    		long val = 1;
+    		constIntNode.value = val;
+    		
+    		addNode.adopt(constIntNode);
+    		
+    		assignNode.adopt(addNode);
+    	}
+    	else {
+    		Node subNode = new Node(SUBTRACT);
+    		subNode.adopt(forNode.children.get(0).children.get(0));// get the variable from the original assign node
+    		Node constIntNode = new Node(INTEGER_CONSTANT);
+    		long val = 1;
+    		constIntNode.value = val;
+    		subNode.adopt(constIntNode);
+    		
+    		assignNode.adopt(subNode);
+    	}
+    	
+    	loopNode.adopt(assignNode);
+    	forNode.adopt(loopNode);
+    	
+    	
+    	return forNode;
     }
 
     private Node parseWhileStatement() {
