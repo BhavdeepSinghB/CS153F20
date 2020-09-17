@@ -19,16 +19,19 @@ public class Executor
     
     private static HashSet<Node.NodeType> singletons;
     private static HashSet<Node.NodeType> relationals;
+    private static HashSet<Node.NodeType> booleans;
     
     static
     {
         singletons  = new HashSet<Node.NodeType>();
         relationals = new HashSet<Node.NodeType>();
-        
+        booleans = new HashSet<Node.NodeType>();
+
         singletons.add(VARIABLE);
         singletons.add(INTEGER_CONSTANT);
         singletons.add(REAL_CONSTANT);
         singletons.add(STRING_CONSTANT);
+        singletons.add(NEG);
         
         relationals.add(EQ);
         relationals.add(LT);
@@ -36,6 +39,9 @@ public class Executor
         relationals.add(LEQ);
         relationals.add(GEQ);
         relationals.add(NEQ);
+
+        booleans.add(Node.NodeType.AND);
+        booleans.add(Node.NodeType.OR);
     }
     
     public Executor() {}
@@ -50,6 +56,7 @@ public class Executor
             case ASSIGN :   
             case LOOP : 
             case WRITE :
+            case IF :
             case WRITELN :  return visitStatement(node);
             
             case TEST:      return visitTest(node);
@@ -71,10 +78,11 @@ public class Executor
         switch (statementNode.type)
         {
             case COMPOUND :  return visitCompound(statementNode);
-            case ASSIGN :    return visitAssign(statementNode);
-            case LOOP :      return visitLoop(statementNode);
-            case WRITE :     return visitWrite(statementNode);
-            case WRITELN :   return visitWriteln(statementNode);
+            case ASSIGN   :  return visitAssign(statementNode);
+            case LOOP     :  return visitLoop(statementNode);
+            case IF       :  return visitIf(statementNode);
+            case WRITE    :  return visitWrite(statementNode);
+            case WRITELN  :  return visitWriteln(statementNode);
             
             default :        return null;
         }
@@ -101,7 +109,22 @@ public class Executor
         
         return null;
     }
-    
+
+    private Object visitIf(Node ifNode) {
+        if(ifNode.children.size() > 1) {
+            Node exprNode = ifNode.children.get(0);
+            boolean b = (boolean) visit(exprNode);
+            if(b) {
+                visit(ifNode.children.get(1));
+            }
+            else if(ifNode.children.size() > 2) {
+                visit(ifNode.children.get(2));
+            }
+        }
+        else runtimeError(ifNode, "If has no statements");
+        return null;
+    }
+
     private Object visitLoop(Node loopNode)
     {        
         boolean b = false;
@@ -122,11 +145,6 @@ public class Executor
     
     private Object visitTest(Node testNode)
     {
-        Node checker =  testNode.children.get(0);
-        if (checker.type == NOT) {
-            testNode = checker;
-            return !((Boolean) visit(testNode.children.get(0)));
-        }
         return (Boolean) visit(testNode.children.get(0));
     }
     
@@ -188,6 +206,10 @@ public class Executor
     private Object visitExpression(Node expressionNode)
     {
         // Single-operand expressions.
+        if (expressionNode.type == NOT) {
+            return !((boolean) visit(expressionNode.children.get(0)));
+        }
+
         if (singletons.contains(expressionNode.type))
         {
             switch (expressionNode.type)
@@ -196,11 +218,24 @@ public class Executor
                 case INTEGER_CONSTANT : return visitIntegerConstant(expressionNode);
                 case REAL_CONSTANT    : return visitRealConstant(expressionNode);
                 case STRING_CONSTANT  : return visitStringConstant(expressionNode);
-                
-                default: return null;
+                case NEG              : return visitNegNode(expressionNode);
+                default               : return null;
             }
         }
         
+        if(booleans.contains(expressionNode.type)) {
+            boolean value1 = (boolean) visit(expressionNode.children.get(0));
+            boolean value2 = (boolean) visit(expressionNode.children.get(1));
+            boolean value = false;
+            switch (expressionNode.type)
+            {
+                case AND : value = value1 && value2; break;
+                case OR  : value = value1 || value2; break;
+                default  : break;
+            }
+            return value;
+        }
+
         // Binary expressions.
         double value1 = (Double) visit(expressionNode.children.get(0));
         double value2 = (Double) visit(expressionNode.children.get(1));
@@ -274,6 +309,14 @@ public class Executor
     private Object visitStringConstant(Node stringConstantNode)
     {
         return (String) stringConstantNode.value;
+    }
+
+    private Object visitNegNode(Node negNode) {
+        Node child = negNode.children.get(0);
+        if(child.type == INTEGER_CONSTANT)
+            return -1 * (double) visitIntegerConstant(child);
+        else
+            return -1 * (double) visitRealConstant(child);
     }
 
     private void runtimeError(Node node, String message)
